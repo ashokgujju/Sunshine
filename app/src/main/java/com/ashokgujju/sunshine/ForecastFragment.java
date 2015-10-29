@@ -2,9 +2,12 @@ package com.ashokgujju.sunshine;
 
 
 import android.app.Fragment;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -13,6 +16,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
@@ -68,23 +72,41 @@ public class ForecastFragment extends Fragment {
 
         ListView listView = (ListView) view.findViewById(R.id.listview_forecast);
         listView.setAdapter(mForecastAdapter);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent intent = new Intent(getActivity(), DetailActivity.class)
+                        .putExtra(Intent.EXTRA_TEXT, mForecastAdapter.getItem(position));
+                startActivity(intent);
+            }
+        });
         return view;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        updateWeatherReport();
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.forecastfragment, menu);
-
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_refresh:
-                new FetchWeatherTask().execute("560025");
+                updateWeatherReport();
                 break;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void updateWeatherReport() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        new FetchWeatherTask().execute(preferences.getString(getString(R.string.pref_location_key), getString(R.string.pref_location_default)));
     }
 
     private class FetchWeatherTask extends AsyncTask<String, Void, String[]> {
@@ -224,6 +246,12 @@ public class ForecastFragment extends Fragment {
                 JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
                 double high = temperatureObject.getDouble(OWM_MAX);
                 double low = temperatureObject.getDouble(OWM_MIN);
+
+                SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+                if (!(preferences.getString(getString(R.string.pref_units_key), getString(R.string.pref_units_default))).equals(getString(R.string.pref_units_default))) {
+                    high = ((high * 9) / 5) + 32;
+                    low = ((low * 9) / 5) + 32;
+                }
 
                 highAndLow = formatHighLows(high, low);
                 resultStrs[i] = day + " - " + description + " - " + highAndLow;
